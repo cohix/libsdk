@@ -1,21 +1,23 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"time"
+	"log/slog"
+	"os"
 
+	"github.com/cohix/libsdk/example"
 	"github.com/cohix/libsdk/pkg/fabric"
 	fabricnats "github.com/cohix/libsdk/pkg/fabric/fabric-nats"
+	"github.com/cohix/libsdk/pkg/store"
+	driversqlite "github.com/cohix/libsdk/pkg/store/driver-sqlite"
+	"github.com/pkg/errors"
 )
 
-type message struct {
-	From string
-	To   string
-	Text string
-}
-
 func main() {
+	if len(os.Args) != 2 {
+		log.Fatal("args")
+	}
+
 	var f fabric.Fabric
 	var err error
 
@@ -29,20 +31,24 @@ func main() {
 		log.Fatal(err)
 	}
 
-	go func() {
-		if err := rpl.Replay(msgGen, func(msg any) {
-			realMsg := msg.(*message)
+	driver, err := driversqlite.New("SVC")
+	if err != nil {
+		log.Fatal(err)
+	}
 
-			fmt.Printf("Message from %s to %s: %s\n", realMsg.From, realMsg.To, realMsg.Text)
-		}); err != nil {
-			log.Fatal(err)
-		}
-	}()
+	store := store.New(driver, rpl)
 
-	time.Sleep(time.Second * 10)
-}
+	store.Register("InsertPerson", example.InsertPersonHandler)
+	store.Register("GetPerson", example.GetPersonHandler)
 
-// generator for message handler
-func msgGen() any {
-	return &message{}
+	if err := store.Start(example.Migrations); err != nil {
+		log.Fatal(errors.Wrap(err, "failed to store.Start"))
+	}
+
+	person, err := store.Exec("GetPerson", os.Args[1])
+	if err != nil {
+		log.Fatal(errors.Wrap(err, "failed to store.Exec"))
+	}
+
+	slog.Info("Got person", "person", person)
 }

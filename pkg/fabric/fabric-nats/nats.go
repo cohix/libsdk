@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"sync"
 
 	"github.com/cohix/libsdk/pkg/fabric"
 	"github.com/gofrs/uuid"
@@ -11,6 +13,8 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/pkg/errors"
 )
+
+var _ fabric.Fabric = &Nats{}
 
 type Nats struct {
 	serviceName string
@@ -23,9 +27,11 @@ type MsgConnection struct{}
 
 // ReplayConnection is a connection for pub/sub/replay
 type ReplayConnection struct {
+	log      slog.Logger
 	subject  string
 	stream   jetstream.Stream
 	consumer jetstream.Consumer
+	info     *jetstream.ConsumerInfo
 	publish  func(ctx context.Context, subject string, payload []byte, opts ...jetstream.PublishOpt) (*jetstream.PubAck, error)
 }
 
@@ -43,7 +49,7 @@ func New(serviceName string) (*Nats, error) {
 
 	s, err := js.CreateOrUpdateStream(context.Background(), jetstream.StreamConfig{
 		Name: serviceName,
-		// Subjects for SERVICE.store, and SERVICE.pub are created for preserving all state. SERVICE.msg subjects are not persisted.
+		// Subjects for SERVICE.store, and SERVICE.pub are attached to preserve their state. SERVICE.msg subjects are not persisted.
 		Subjects:    []string{fmt.Sprintf("%s.store", serviceName), fmt.Sprintf("%s.pub", serviceName)},
 		Storage:     jetstream.FileStorage,
 		Retention:   jetstream.LimitsPolicy,
@@ -102,10 +108,18 @@ func (n *Nats) Replayer(subject string, beginning bool) (fabric.ReplayConnection
 		return nil, errors.Wrap(err, "failed to OrderedConsumer")
 	}
 
+	// get consumer info to power the upTo channel in the replayer
+	info, err := c.Info(context.Background())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to consumer.Info")
+	}
+
 	b := &ReplayConnection{
+		log:      *slog.With("lib", "libsdk", "module", "fabricnats"),
 		subject:  fullSubject,
 		stream:   n.s,
 		consumer: c,
+		info:     info,
 		publish:  n.js.Publish,
 	}
 
@@ -135,28 +149,49 @@ func (b *ReplayConnection) Publish(msg any) error {
 	return nil
 }
 
-func (b *ReplayConnection) Replay(gen fabric.Generator, recv fabric.Receiver) error {
+func (b *ReplayConnection) Replay(gen fabric.Generator, recv fabric.Receiver) (chan bool, error) {
+	upToChan := make(chan bool, 1)
+	var upToCounter uint64 = 0
+
 	msgs, err := b.consumer.Messages()
 	if err != nil {
-		return errors.Wrap(err, "failed to consumer.Messages")
+		return nil, errors.Wrap(err, "failed to consumer.Messages")
 	}
 
-	for {
-		msg, err := msgs.Next()
-		if err != nil {
-			return errors.Wrap(err, "failed to msgs.Next")
+	go func() {
+		upToOnce := sync.Once{}
+
+		for {
+			msg, err := msgs.Next()
+			if err != nil {
+				b.log.Error(errors.Wrap(err, "failed to msgs.Next").Error())
+				continue
+			}
+
+			upToCounter++
+			msg.Ack()
+
+			// notify the caller when we've reached the point of the
+			// stream where we attached to it as a new consumer
+			// but only once as we'd be blocking message reading otherwise
+			if upToCounter >= b.info.NumPending {
+				upToOnce.Do(func() {
+					upToChan <- true
+				})
+			}
+
+			// grab a typed object from the replay consumer
+			// via the generator into which we unmarshal the data
+			obj := gen()
+
+			if err := json.Unmarshal(msg.Data(), obj); err != nil {
+				b.log.Error(errors.Wrap(err, "failed to json.Unmarshal").Error())
+				continue
+			}
+
+			recv(obj)
 		}
+	}()
 
-		msg.Ack()
-
-		// grab a typed object from the replay consumer
-		// via the generator into which we unmarshal the data
-		obj := gen()
-
-		if err := json.Unmarshal(msg.Data(), obj); err != nil {
-			return errors.Wrap(err, "failed to json.Unmarshal")
-		}
-
-		recv(obj)
-	}
+	return upToChan, nil
 }

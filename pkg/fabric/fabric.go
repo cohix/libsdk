@@ -23,5 +23,5 @@ type MsgConnection interface {
 
 type ReplayConnection interface {
 	Publish(msg any) error
-	Replay(gen Generator, receiver Receiver) error
+	Replay(gen Generator, receiver Receiver) (chan bool, error)
 }

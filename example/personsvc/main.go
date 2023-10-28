@@ -1,20 +1,19 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"log/slog"
 	"math/rand"
 	"strconv"
 
+	"github.com/cohix/libsdk/example"
 	"github.com/cohix/libsdk/pkg/fabric"
 	fabricnats "github.com/cohix/libsdk/pkg/fabric/fabric-nats"
+	"github.com/cohix/libsdk/pkg/store"
+	driversqlite "github.com/cohix/libsdk/pkg/store/driver-sqlite"
+	"github.com/pkg/errors"
 )
-
-type message struct {
-	From string
-	To   string
-	Text string
-}
 
 func main() {
 	var f fabric.Fabric
@@ -25,20 +24,31 @@ func main() {
 		log.Fatal(err)
 	}
 
-	rpl, err := f.Replayer("store", false)
+	rpl, err := f.Replayer("store", true)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	rdm := rand.Intn(99999)
-
-	if err := rpl.Publish(message{
-		From: "Rick",
-		To:   "Morty",
-		Text: "hello " + strconv.Itoa(rdm),
-	}); err != nil {
+	driver, err := driversqlite.New("SVC")
+	if err != nil {
 		log.Fatal(err)
 	}
 
-	slog.Info("published message!")
+	store := store.New(driver, rpl)
+
+	store.Register("InsertPerson", example.InsertPersonHandler)
+	store.Register("GetPerson", example.GetPersonHandler)
+
+	if err := store.Start(example.Migrations); err != nil {
+		log.Fatal(errors.Wrap(err, "failed to store.Start"))
+	}
+
+	rdm := rand.Intn(9999)
+
+	id, err := store.Exec("InsertPerson", "Rick", "Sanchez", fmt.Sprintf("rick%s@sanchez.com", strconv.Itoa(rdm)))
+	if err != nil {
+		log.Fatal(errors.Wrap(err, "failed to store.Exec"))
+	}
+
+	slog.Info("Inserted record with ID", "id", id)
 }
