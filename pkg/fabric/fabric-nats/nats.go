@@ -151,7 +151,20 @@ func (b *ReplayConnection) Publish(msg any) error {
 
 func (b *ReplayConnection) Replay(gen fabric.Generator, recv fabric.Receiver) (chan bool, error) {
 	upToChan := make(chan bool, 1)
-	var upToCounter uint64 = 0
+	upToOnce := sync.Once{}
+	upToCounter := uint64(0)
+
+	upToCompletion := func() {
+		upToOnce.Do(func() {
+			upToChan <- true
+		})
+	}
+
+	// in the special case where this is the very first time a service is
+	// running and there are no messages in the stream at all, notify now
+	if b.info.NumPending == 0 {
+		upToCompletion()
+	}
 
 	msgs, err := b.consumer.Messages()
 	if err != nil {
@@ -159,8 +172,6 @@ func (b *ReplayConnection) Replay(gen fabric.Generator, recv fabric.Receiver) (c
 	}
 
 	go func() {
-		upToOnce := sync.Once{}
-
 		for {
 			msg, err := msgs.Next()
 			if err != nil {
@@ -175,9 +186,7 @@ func (b *ReplayConnection) Replay(gen fabric.Generator, recv fabric.Receiver) (c
 			// stream where we attached to it as a new consumer
 			// but only once as we'd be blocking message reading otherwise
 			if upToCounter >= b.info.NumPending {
-				upToOnce.Do(func() {
-					upToChan <- true
-				})
+				upToCompletion()
 			}
 
 			// grab a typed object from the replay consumer

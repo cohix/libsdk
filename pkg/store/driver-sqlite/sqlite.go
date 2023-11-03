@@ -94,7 +94,7 @@ func (s *Sqlite) Migrate(statements []string) error {
 	}
 
 	for i, stmt := range statements {
-		s.log.Debug("running migration", "num", i, "of", len(statements))
+		s.log.Info("running migration", "num", i, "of", len(statements))
 
 		if _, err := tx.Exec(stmt); err != nil {
 			return errors.Wrap(err, "failed to tx.Exec")

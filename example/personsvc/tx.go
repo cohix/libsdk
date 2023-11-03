@@ -1,4 +1,4 @@
-package example
+package main
 
 import (
 	"github.com/cohix/libsdk/pkg/store"
@@ -12,7 +12,9 @@ type Person struct {
 	Email     string `db:"email"`
 }
 
-var Migrations = []string{m1}
+func personSvcMigrations() []string {
+	return []string{m1}
+}
 
 const m1 = `
 CREATE TABLE people (
