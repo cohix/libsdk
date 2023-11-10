@@ -4,5 +4,5 @@
 # check nats-server --version
 # equal v2.10
 
-include ./personsvc/personsvc.mk
-include ./rolesvc/rolesvc.mk
+include ./example/personsvc/personsvc.mk
+include ./example/rolesvc/rolesvc.mk
