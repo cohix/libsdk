@@ -86,7 +86,7 @@ func (s *Sqlite) Exec(rec store.TxRecord, handler store.TxHandler) (store.Tx, an
 	return tx, result, err
 }
 
-// Migrate runs a migration statement that must succeed or an error is returned
+// Migrate runs migration statements that must all succeed or an error is returned
 func (s *Sqlite) Migrate(statements []string) error {
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -142,16 +142,21 @@ func (t *Tx) ReadWrite() store.ReadWriteTx {
 	return rw
 }
 
-// DidWrite returns true if the transaction was used to write
+// DidWrite returns true if the transaction was used to write.
 func (t *Tx) DidWrite() bool {
 	return t.didWrite
 }
 
-func (r *ReadTx) Select(out []any, query string, args ...any) error {
+// Select runs a query to select one or more rows and read them into out.
+func (r *ReadTx) Select(out any, query string, args ...any) error {
+	if err := r.tx.Select(out, query, args...); err != nil {
+		return errors.Wrap(err, "failed to tx.Select")
+	}
+
 	return nil
 }
 
-// Get runs a query to select one row and read it into out
+// Get runs a query to select a single row and read it into out.
 func (r *ReadTx) Get(out any, query string, args ...any) error {
 	if err := r.tx.Get(out, query, args...); err != nil {
 		return errors.Wrap(err, "failed to tx.Get")
@@ -161,6 +166,7 @@ func (r *ReadTx) Get(out any, query string, args ...any) error {
 }
 
 // Exec runs the provided query with the provided args and returns the insert ID, if any
+// Exec should be used for any insert, update, or delete queries.
 func (rw *ReadWriteTx) Exec(query string, args ...any) (int64, error) {
 	result, err := rw.tx.Exec(query, args...)
 	if err != nil {
@@ -173,10 +179,6 @@ func (rw *ReadWriteTx) Exec(query string, args ...any) (int64, error) {
 	}
 
 	return id, nil
-}
-
-func (rw *ReadWriteTx) Delete(query string, args ...any) error {
-	return nil
 }
 
 func dbPath(serviceName string) (string, error) {

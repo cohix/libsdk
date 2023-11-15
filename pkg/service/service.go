@@ -1,8 +1,6 @@
 package service
 
 import (
-	"fmt"
-	"log/slog"
 	"net/http"
 	"os"
 
@@ -13,6 +11,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+const publicAddrEnvKey = "LIBSDK_PUBLIC_ADDR"
+
 // Service is a libsdk service which contains public and private servers,
 // a fabric, and a store for simple service development.
 type Service struct {
@@ -20,15 +20,6 @@ type Service struct {
 
 	fabric fabric.Fabric
 	store  *store.Store
-}
-
-// App provides an application's logic to a service.
-type App interface {
-	Migrations() []string
-	Transactions() map[string]store.TxHandler
-	Public(store *store.Store) http.Handler
-	Private(store *store.Store) http.Handler
-	Log() *slog.Logger
 }
 
 // New creates a Service with a SQLite store and NATS fabric.
@@ -97,11 +88,11 @@ func (s *Service) Store() *store.Store {
 }
 
 func publicAddr() string {
-	addr := "localhost:8080"
+	addr := ":8080"
 
-	envPort, exists := os.LookupEnv("LIBSDK_PUBLIC_PORT")
+	envAddr, exists := os.LookupEnv(publicAddrEnvKey)
 	if exists {
-		addr = fmt.Sprintf("localhost:%s", envPort)
+		addr = envAddr
 	}
 
 	return addr

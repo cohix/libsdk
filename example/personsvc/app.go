@@ -28,6 +28,7 @@ func (p *PersonApp) Migrations() []string {
 func (p *PersonApp) Transactions() map[string]store.TxHandler {
 	txs := map[string]store.TxHandler{
 		"InsertPerson": InsertPersonHandler,
+		"SelectPeople": SelectPeopleHandler,
 		"GetPerson":    GetPersonHandler,
 	}
 
@@ -39,6 +40,7 @@ func (p *PersonApp) Public(store *store.Store) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/insert", p.insertHandler(store))
+	mux.HandleFunc("/select", p.selectHandler(store))
 	mux.HandleFunc("/get", p.getHandler(store))
 
 	return mux
@@ -83,6 +85,28 @@ func (p *PersonApp) getHandler(store *store.Store) http.HandlerFunc {
 		person := prs.(*Person)
 
 		resp, err := json.Marshal(person)
+		if err != nil {
+			p.log.Error(errors.Wrap(err, "failed to json.Marshal").Error())
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		w.Write(resp)
+	}
+}
+
+func (p *PersonApp) selectHandler(store *store.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ppl, err := store.Exec("SelectPeople")
+		if err != nil {
+			p.log.Error(errors.Wrap(err, "failed to Exec GetPerson").Error())
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		people := ppl.([]Person)
+
+		resp, err := json.Marshal(people)
 		if err != nil {
 			p.log.Error(errors.Wrap(err, "failed to json.Marshal").Error())
 			w.WriteHeader(http.StatusInternalServerError)

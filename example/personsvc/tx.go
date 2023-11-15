@@ -39,6 +39,27 @@ func InsertPersonHandler(tx store.Tx, args ...any) (any, error) {
 	return id, nil
 }
 
+func SelectPeopleHandler(tx store.Tx, args ...any) (any, error) {
+	q := `
+	SELECT
+		person_id,
+		first_name,
+		last_name,
+		email
+	FROM
+		people
+	LIMIT 10;
+	`
+
+	ppl := []Person{}
+
+	if err := tx.Read().Select(&ppl, q, args...); err != nil {
+		return nil, errors.Wrap(err, "failed to Get")
+	}
+
+	return ppl, nil
+}
+
 func GetPersonHandler(tx store.Tx, args ...any) (any, error) {
 	q := `
 	SELECT

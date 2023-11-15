@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 
 	"github.com/cohix/libsdk/pkg/fabric"
@@ -13,6 +14,10 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/pkg/errors"
 )
+
+// local is the default (running on the same system)
+const localNatsAddr = nats.DefaultURL
+const natsAddrEnvKey = "LIBSDK_FABRIC_NATS_ADDR"
 
 var _ fabric.Fabric = &Nats{}
 
@@ -37,7 +42,12 @@ type ReplayConnection struct {
 
 // New creates a new NATS fabric
 func New(serviceName string) (*Nats, error) {
-	nc, err := nats.Connect(nats.DefaultURL)
+	natsAddr := localNatsAddr
+	if envAddr, exists := os.LookupEnv(natsAddrEnvKey); exists {
+		natsAddr = envAddr
+	}
+
+	nc, err := nats.Connect(natsAddr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to nats.Connect")
 	}

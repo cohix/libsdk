@@ -37,7 +37,7 @@ type Tx interface {
 
 // ReadTx is a read-only transaction
 type ReadTx interface {
-	Select(out []any, query string, args ...any) error
+	Select(out any, query string, args ...any) error
 	Get(out any, query string, args ...any) error
 }
 
@@ -45,7 +45,6 @@ type ReadTx interface {
 type ReadWriteTx interface {
 	ReadTx
 	Exec(query string, args ...any) (int64, error)
-	Delete(query string, args ...any) error
 }
 
 // TxHandler is a function that executes a named transaction
