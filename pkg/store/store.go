@@ -17,7 +17,7 @@ type Store struct {
 	driver       Driver
 	replayer     fabric.ReplayConnection
 	log          *slog.Logger
-	transactions map[string]TxHandler
+	transactions map[TxName]TxHandler
 	inflight     sync.Map
 }
 
@@ -50,10 +50,13 @@ type ReadWriteTx interface {
 // TxHandler is a function that executes a named transaction
 type TxHandler func(tx Tx, args ...any) (result any, err error)
 
+// TxName is a type that encourages best practices for naming transactions with variables
+type TxName string
+
 // TxRecord is a serializable transaction for replication purposes
 type TxRecord struct {
 	UUID string `json:"uuid"`
-	Name string `json:"name"`
+	Name TxName `json:"name"`
 	Args []any  `json:"args"`
 }
 
@@ -63,7 +66,7 @@ func New(driver Driver, replayer fabric.ReplayConnection) *Store {
 		driver:       driver,
 		replayer:     replayer,
 		log:          slog.With("lib", "libsdk", "module", "store"),
-		transactions: map[string]TxHandler{},
+		transactions: map[TxName]TxHandler{},
 		inflight:     sync.Map{},
 	}
 
@@ -121,7 +124,7 @@ func (s *Store) Start(migrations []string) error {
 
 // Register registers the given transaction under the given name.
 // name must be unique, attempt to re-register with same name results in an error.
-func (s *Store) Register(name string, handler TxHandler) error {
+func (s *Store) Register(name TxName, handler TxHandler) error {
 	_, exists := s.transactions[name]
 	if exists {
 		return fmt.Errorf("transaction registered with name %s already exists", name)
@@ -137,7 +140,7 @@ func (s *Store) Register(name string, handler TxHandler) error {
 // and, upon confirmation of successful distribution, applied to the
 // local store replica. The result or error of the TxHandler is returned.
 // Non-errored call to Exec guarantees that replication succeeded.
-func (s *Store) Exec(name string, args ...any) (any, error) {
+func (s *Store) Exec(name TxName, args ...any) (any, error) {
 	handler, exists := s.transactions[name]
 	if !exists {
 		return nil, fmt.Errorf("transaction with name %s is not registered", name)

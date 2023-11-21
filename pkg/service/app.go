@@ -12,7 +12,7 @@ type AppHandlerFunc func(store *store.Store) http.Handler
 // App provides an application's logic to a service.
 type App interface {
 	Migrations() []string
-	Transactions() map[string]store.TxHandler
+	Transactions() map[store.TxName]store.TxHandler
 	Public(store *store.Store) http.Handler
 	Private(store *store.Store) http.Handler
 	Log() *slog.Logger

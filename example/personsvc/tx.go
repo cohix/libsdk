@@ -6,10 +6,10 @@ import (
 )
 
 type Person struct {
-	ID        int64  `db:"person_id"`
-	FirstName string `db:"first_name"`
-	LastName  string `db:"last_name"`
-	Email     string `db:"email"`
+	PersonID  int64  `db:"person_id" json:"person_id"`
+	FirstName string `db:"first_name" json:"first_name"`
+	LastName  string `db:"last_name" json:"last_name"`
+	Email     string `db:"email" json:"email"`
 }
 
 func personSvcMigrations() []string {
@@ -25,7 +25,10 @@ CREATE TABLE people (
 );
 `
 
-func InsertPersonHandler(tx store.Tx, args ...any) (any, error) {
+// InsertPerson and InsertPersonTx are an example of the best practice for defining a transaction handler.
+// By defining a TxName variable and TxHandler func on the same line, it makes Jump-To-Definition more useful.
+// and the codebase easier to reason about. You can also define them on seperate lines if you prefer (see below).
+var InsertPerson, InsertPersonTx = store.TxName("InsertPerson"), func(tx store.Tx, args ...any) (any, error) {
 	q := `
 	INSERT INTO people (first_name, last_name, email)
 	VALUES($1, $2, $3);
@@ -39,7 +42,11 @@ func InsertPersonHandler(tx store.Tx, args ...any) (any, error) {
 	return id, nil
 }
 
-func SelectPeopleHandler(tx store.Tx, args ...any) (any, error) {
+// SelectPeople and SelectPeopleTx below is the more verbose two-line way to define transactions.
+// The above one-line version is preferable, but this is also acceptable!
+var SelectPeople = store.TxName("SelectPeople")
+
+func SelectPeopleTx(tx store.Tx, args ...any) (any, error) {
 	q := `
 	SELECT
 		person_id,
@@ -60,7 +67,7 @@ func SelectPeopleHandler(tx store.Tx, args ...any) (any, error) {
 	return ppl, nil
 }
 
-func GetPersonHandler(tx store.Tx, args ...any) (any, error) {
+var GetPerson, GetPersonTx = store.TxName("GetPerson"), func(tx store.Tx, args ...any) (any, error) {
 	q := `
 	SELECT
 		person_id,
