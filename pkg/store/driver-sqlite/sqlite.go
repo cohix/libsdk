@@ -56,7 +56,7 @@ func New(serviceName string) (store.Driver, error) {
 
 	s := &Sqlite{
 		db:  db,
-		log: *slog.With("lib", "libsdk", "module", "driversqlite"),
+		log: *slog.With("lib", "libsdk", "pkg", "driversqlite"),
 	}
 
 	s.log.Info("database created", "file", filepath)

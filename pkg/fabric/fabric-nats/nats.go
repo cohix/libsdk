@@ -115,7 +115,7 @@ func (n *Nats) Replayer(subject string, beginning bool) (fabric.ReplayConnection
 	})
 
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to OrderedConsumer")
+		return nil, errors.Wrap(err, "failed to CreateOrUpdateConsumer")
 	}
 
 	// get consumer info to power the upTo channel in the replayer
@@ -125,7 +125,7 @@ func (n *Nats) Replayer(subject string, beginning bool) (fabric.ReplayConnection
 	}
 
 	b := &ReplayConnection{
-		log:      *slog.With("lib", "libsdk", "module", "fabricnats"),
+		log:      *slog.With("lib", "libsdk", "pkg", "fabricnats"),
 		subject:  fullSubject,
 		stream:   n.s,
 		consumer: c,

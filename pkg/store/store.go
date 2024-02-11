@@ -65,7 +65,7 @@ func New(driver Driver, replayer fabric.ReplayConnection) *Store {
 	s := &Store{
 		driver:       driver,
 		replayer:     replayer,
-		log:          slog.With("lib", "libsdk", "module", "store"),
+		log:          slog.With("lib", "libsdk", "pkg", "store"),
 		transactions: map[TxName]TxHandler{},
 		inflight:     sync.Map{},
 	}
