@@ -1,6 +1,6 @@
 # 💄 libsdk
 
-> libsdk (pronounced "lipstick") is a Go library/sdk for resilient globally distributed backend systems. It pairs well with [Makeup](https://github.com/cohix/makeup) for local development.
+> libsdk (pronounced "lipstick") is a Go library/sdk for resilient globally distributed server applications.
 
 libsdk is in early development. It is being designed for applications composed of small services that run in geographically distributed regions or "on the edge".
 
